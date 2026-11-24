@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import math
 import unittest
 
 import numpy as np
 
+from src.baseline import baseline_detect
 from src.config import DetectorConfig
 from src.fall_detector import FallDetector
 from src.features import extract_features
@@ -184,6 +186,65 @@ class FallDetectorTests(unittest.TestCase):
             second = second or event
         self.assertIsNotNone(second)
         self.assertNotEqual(first.timestamp_s, second.timestamp_s)
+
+
+class BaselineTests(unittest.TestCase):
+    def test_lying_long_enough_triggers(self) -> None:
+        # 25 fps: upright until 0.4 s, then horizontal. Detection is the
+        # first frame that completes the 1 s hold, i.e. 0.4 + 1.0 = 1.4 s.
+        times = [i / 25 for i in range(75)]
+        angles = [10.0 if t < 0.4 else 80.0 for t in times]
+        detected = baseline_detect(times, angles, angle_thr=60, hold=1.0)
+        self.assertIsNotNone(detected)
+        self.assertAlmostEqual(float(detected), 1.4, places=6)
+
+    def test_brief_lying_does_not_trigger(self) -> None:
+        # Only 0.6 s horizontal, which is below the 1 s hold.
+        times = [i / 25 for i in range(45)]
+        angles = [10.0] * 30 + [80.0] * 15
+        self.assertIsNone(baseline_detect(times, angles, hold=1.0))
+
+    def test_threshold_is_inclusive(self) -> None:
+        times = [0.0, 0.5, 1.0, 1.5]
+        self.assertEqual(
+            baseline_detect(times, [60.0] * 4, angle_thr=60, hold=1.0), 1.0
+        )
+
+    def test_sitting_up_resets_the_run(self) -> None:
+        # Two 0.7 s horizontal spells split by one upright frame.
+        times = [i * 0.1 for i in range(17)]
+        angles = [80.0] * 8 + [10.0] + [80.0] * 8
+        self.assertIsNone(baseline_detect(times, angles, hold=1.0))
+
+        # Staying down for another second still fires, timed from the 0.9 s
+        # frame where the second run started.
+        times += [1.7 + i * 0.1 for i in range(10)]
+        angles += [80.0] * 10
+        detected = baseline_detect(times, angles, hold=1.0)
+        self.assertIsNotNone(detected)
+        self.assertAlmostEqual(float(detected), 1.9, places=6)
+
+    def test_missing_pose_breaks_the_run(self) -> None:
+        # 0.7 s horizontal, a frame with no pose, then 0.8 s more: no run
+        # reaches the 1 s hold.
+        times = [i * 0.1 for i in range(18)]
+        angles = [80.0] * 8 + [math.nan] + [80.0] * 9
+        self.assertIsNone(baseline_detect(times, angles, hold=1.0))
+
+    def test_empty_input(self) -> None:
+        self.assertIsNone(baseline_detect([], []))
+        self.assertIsNone(baseline_detect([1.0], [80.0], hold=1.0))
+
+    def test_zero_hold_returns_first_horizontal_frame(self) -> None:
+        self.assertEqual(baseline_detect([0.0, 0.1], [10.0, 80.0], hold=0.0), 0.1)
+
+    def test_invalid_input_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            baseline_detect([0.0, 1.0], [80.0])
+        with self.assertRaises(ValueError):
+            baseline_detect([1.0, 0.0], [80.0, 80.0])
+        with self.assertRaises(ValueError):
+            baseline_detect([0.0, 1.0], [80.0, 80.0], hold=-1.0)
 
 
 class ResizeTests(unittest.TestCase):
