@@ -58,6 +58,16 @@ def _draw_skeleton(
             )
 
 
+def draw_skeleton(
+    canvas: np.ndarray,
+    landmarks: np.ndarray,
+    color: tuple[int, int, int] = (70, 200, 70),
+    min_visibility: float = 0.5,
+) -> None:
+    """Draw pose connections and joints in place."""
+    _draw_skeleton(canvas, landmarks, color, min_visibility)
+
+
 def _put_label(
     canvas: np.ndarray,
     text: str,
