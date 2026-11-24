@@ -1,0 +1,31 @@
+# Virtual environments
+venv/
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Datasets and raw videos (download separately)
+data/urfd/
+data/videos/*
+!data/videos/.gitkeep
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# Generated outputs (videos, frames, feature CSVs)
+outputs/*
+!outputs/.gitkeep
+data/features/
+data/windows.csv
+data/windows_meta.json
+
+# Downloaded / trained models (regenerate with src/download_model.py and src/train.py)
+models/
+
+# Streamlit
+.streamlit/secrets.toml
