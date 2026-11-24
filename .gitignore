@@ -29,3 +29,6 @@ models/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Cached pose landmarks for evaluation
+data/pose_cache/
